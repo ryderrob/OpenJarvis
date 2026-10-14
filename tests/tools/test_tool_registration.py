@@ -205,3 +205,27 @@ def test_package_import_registers_knowledge_browser_and_proactive_tools():
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_connector_first_import_keeps_connector_backed_tools():
+    """Importing openjarvis.connectors before openjarvis.tools must not drop
+    get_weather/digest_collect via a circular import on connectors._stubs."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import openjarvis.connectors; "
+                "import openjarvis.tools; "
+                "from openjarvis.core.registry import ToolRegistry; "
+                "expected = {'get_weather', 'digest_collect'}; "
+                "missing = expected - set(ToolRegistry.keys()); "
+                "assert not missing, f'Missing tools: {sorted(missing)}'"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr

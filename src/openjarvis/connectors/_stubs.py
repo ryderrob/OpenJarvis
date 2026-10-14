@@ -5,9 +5,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
-from openjarvis.tools._stubs import ToolSpec
+if TYPE_CHECKING:
+    # Annotation-only: importing openjarvis.tools here runs the tools package
+    # __init__, whose weather/digest tools import back into this half-loaded
+    # module and are silently skipped (never registered).
+    from openjarvis.tools._stubs import ToolSpec
 
 
 @dataclass(slots=True)
