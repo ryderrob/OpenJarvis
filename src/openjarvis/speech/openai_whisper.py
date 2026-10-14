@@ -15,17 +15,36 @@ except ImportError:
     OpenAI = None  # type: ignore[assignment, misc]
 
 
+# Point transcription at any OpenAI-compatible server (e.g. a self-hosted
+# gateway) without hijacking OPENAI_API_KEY, which cloud chat routing reads.
+_BASE_URL_ENV = "OPENAI_STT_BASE_URL"
+_API_KEY_ENV = "OPENAI_STT_API_KEY"
+_MODEL_ENV = "OPENAI_STT_MODEL"
+
+
 @SpeechRegistry.register("openai")
 class OpenAIWhisperBackend(SpeechBackend):
     """Cloud speech-to-text using OpenAI Whisper API."""
 
     backend_id = "openai"
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        self._api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        *,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> None:
+        self._api_key = (
+            api_key
+            or os.environ.get(_API_KEY_ENV, "")
+            or os.environ.get("OPENAI_API_KEY", "")
+        )
+        self._base_url = base_url or os.environ.get(_BASE_URL_ENV, "") or None
+        self._model = model or os.environ.get(_MODEL_ENV, "") or "whisper-1"
         self._client: Optional[OpenAI] = None
         if self._api_key and OpenAI is not None:
-            self._client = OpenAI(api_key=self._api_key)
+            self._client = OpenAI(api_key=self._api_key, base_url=self._base_url)
 
     def transcribe(
         self,
@@ -42,7 +61,7 @@ class OpenAIWhisperBackend(SpeechBackend):
         audio_file = io.BytesIO(audio)
         audio_file.name = f"audio.{ext}"
 
-        kwargs: dict = {"model": "whisper-1", "file": audio_file}
+        kwargs: dict = {"model": self._model, "file": audio_file}
         if language:
             kwargs["language"] = language
         kwargs["response_format"] = "verbose_json"

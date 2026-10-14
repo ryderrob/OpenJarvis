@@ -37,7 +37,9 @@ def _create_backend(
                 compute_type=config.speech.compute_type,
             )
         elif key == "openai":
-            api_key = os.environ.get("OPENAI_API_KEY", "")
+            api_key = os.environ.get("OPENAI_STT_API_KEY", "") or os.environ.get(
+                "OPENAI_API_KEY", ""
+            )
             if not api_key:
                 return None
             return backend_cls(api_key=api_key)

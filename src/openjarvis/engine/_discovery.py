@@ -34,6 +34,17 @@ _HOST_MAP: Dict[str, str | None] = {
 
 
 def _make_engine(key: str, config: JarvisConfig) -> InferenceEngine:
+    """Instantiate a registered engine, adding model fallback if configured."""
+    engine = _make_base_engine(key, config)
+    fallbacks = getattr(config.intelligence, "fallback_models", "")
+    if fallbacks and key == config.engine.default:
+        from openjarvis.engine.fallback import ModelFallbackEngine
+
+        return ModelFallbackEngine(engine, fallbacks)
+    return engine
+
+
+def _make_base_engine(key: str, config: JarvisConfig) -> InferenceEngine:
     """Instantiate a registered engine with the appropriate config host."""
     cls = EngineRegistry.get(key)
 

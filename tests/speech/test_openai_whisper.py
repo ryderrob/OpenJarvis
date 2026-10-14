@@ -55,3 +55,22 @@ def test_openai_whisper_health_no_key():
         backend._client = None
         backend._api_key = ""
         assert backend.health() is False
+
+
+def test_openai_whisper_uses_compatible_server_overrides(monkeypatch):
+    monkeypatch.setenv("OPENAI_STT_BASE_URL", "http://gateway:9999/v1")
+    monkeypatch.setenv("OPENAI_STT_API_KEY", "gateway-key")
+    monkeypatch.setenv("OPENAI_STT_MODEL", "auto")
+    monkeypatch.setenv("OPENAI_API_KEY", "real-openai-key")
+    mock_client = MagicMock()
+    mock_client.audio.transcriptions.create.return_value = MagicMock(text="hi")
+
+    with patch(
+        "openjarvis.speech.openai_whisper.OpenAI", return_value=mock_client
+    ) as ctor:
+        OpenAIWhisperBackend().transcribe(b"audio", format="wav")
+
+    ctor.assert_called_once_with(
+        api_key="gateway-key", base_url="http://gateway:9999/v1"
+    )
+    assert mock_client.audio.transcriptions.create.call_args.kwargs["model"] == "auto"

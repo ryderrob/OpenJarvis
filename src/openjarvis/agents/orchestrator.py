@@ -19,6 +19,7 @@ import re
 from typing import Any, Callable, List, Optional
 
 from openjarvis.agents._stubs import AgentContext, AgentResult, ToolUsingAgent
+from openjarvis.core.cancellation import CANCELLED_MESSAGE, is_cancelled
 from openjarvis.core.events import EventBus
 from openjarvis.core.registry import AgentRegistry
 from openjarvis.core.types import Message, Role, ToolCall, ToolResult
@@ -169,6 +170,13 @@ class OrchestratorAgent(ToolUsingAgent):
         turns = 0
 
         for _turn in range(self._max_turns):
+            if is_cancelled():
+                return AgentResult(
+                    content=CANCELLED_MESSAGE,
+                    tool_results=all_tool_results,
+                    turns=turns,
+                    metadata={"cancelled": True},
+                )
             turns += 1
 
             if self._loop_guard:
@@ -366,6 +374,13 @@ class OrchestratorAgent(ToolUsingAgent):
         total_completion_tokens = 0
 
         for _turn in range(self._max_turns):
+            if is_cancelled():
+                return AgentResult(
+                    content=CANCELLED_MESSAGE,
+                    tool_results=all_tool_results,
+                    turns=turns,
+                    metadata={"cancelled": True},
+                )
             turns += 1
 
             if self._loop_guard:

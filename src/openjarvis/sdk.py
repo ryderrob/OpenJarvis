@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import openjarvis
 from openjarvis.core.config import JarvisConfig, load_config
@@ -254,6 +254,7 @@ class Jarvis:
         max_tokens: Optional[int] = None,
         context: bool = True,
         channel: Optional[Any] = None,
+        confirm_callback: Optional[Callable[[str], bool]] = None,
     ) -> str:
         """Send a query and return the response text."""
         result = self.ask_full(
@@ -265,6 +266,7 @@ class Jarvis:
             max_tokens=max_tokens,
             context=context,
             channel=channel,
+            confirm_callback=confirm_callback,
         )
         return result["content"]
 
@@ -279,8 +281,12 @@ class Jarvis:
         max_tokens: Optional[int] = None,
         context: bool = True,
         channel: Optional[Any] = None,
+        confirm_callback: Optional[Callable[[str], bool]] = None,
     ) -> Dict[str, Any]:
         """Send a query and return the full result dict.
+
+        ``confirm_callback`` approves tools that require confirmation; without
+        one those tools are refused (the SDK never auto-approves).
 
         Returns a dict with keys: content, usage, tool_results (if agent mode).
         """
@@ -311,6 +317,7 @@ class Jarvis:
                 max_tokens=max_tokens,
                 context=context,
                 channel=channel,
+                confirm_callback=confirm_callback,
             )
 
         # Direct engine mode
@@ -451,6 +458,7 @@ class Jarvis:
         max_tokens: int,
         context: bool,
         channel: Optional[Any] = None,
+        confirm_callback: Optional[Callable[[str], bool]] = None,
     ) -> Dict[str, Any]:
         """Run an agent and return the result dict."""
         import openjarvis.agents  # noqa: F401
@@ -487,6 +495,9 @@ class Jarvis:
         if getattr(agent_cls, "accepts_tools", False):
             agent_kwargs["tools"] = tool_objects
             agent_kwargs["max_turns"] = self._config.agent.max_turns
+            if confirm_callback is not None:
+                agent_kwargs["interactive"] = True
+                agent_kwargs["confirm_callback"] = confirm_callback
         from openjarvis.security.runtime import agent_security_kwargs
 
         agent_kwargs.update(

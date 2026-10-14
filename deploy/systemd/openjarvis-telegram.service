@@ -1,0 +1,43 @@
+# OpenJarvis Telegram listener as a systemd *user* service.
+#
+# Answers allow-listed users' messages and calls, streams media, and keeps the
+# Telegram session online. Install (no root needed):
+#
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/systemd/openjarvis-telegram.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now openjarvis-telegram
+#   loginctl enable-linger "$USER"   # start at boot without logging in
+#
+# Assumes the checkout lives at ~/OpenJarvis with its .venv built (including
+# the Rust extension) and `jarvis telegram login` done. Logs:
+#   journalctl --user -u openjarvis-telegram -f
+#   ~/.openjarvis/logs/telegram.log   (or: jarvis telegram logs -f)
+
+[Unit]
+Description=OpenJarvis Telegram listener (messages, calls, media)
+After=network-online.target
+# Give up after 5 crashes in 5 minutes instead of hammering Telegram.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=%h/OpenJarvis
+# yt-dlp and uv usually live in ~/.local/bin; ffmpeg in /usr/bin.
+Environment=PATH=%h/.local/bin:%h/OpenJarvis/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+# Optional provider settings (API keys, gateway URLs) as shell `export` lines;
+# sourced by bash because they may reference each other. Kept out of this unit
+# so secrets never show up in `systemctl show`.
+ExecStart=/bin/bash -c 'set -a; f="$HOME/.openjarvis/freellmapi.env"; [ -f "$f" ] && . "$f"; exec "$HOME/OpenJarvis/.venv/bin/jarvis" telegram listen'
+# The venv binary is used directly: `uv run` may re-sync the environment and
+# drop locally built extras such as the Rust extension.
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=30
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

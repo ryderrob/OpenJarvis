@@ -430,6 +430,7 @@ def _remember_exchange(
 
 def _engine_key_for_model(engine: Any, model: str) -> str | None:
     """Resolve the engine that advertised *model* through wrapper layers."""
+    from openjarvis.engine.fallback import ModelFallbackEngine
     from openjarvis.engine.multi import MultiEngine
     from openjarvis.security.guardrails import GuardrailsEngine
     from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
@@ -438,7 +439,7 @@ def _engine_key_for_model(engine: Any, model: str) -> str | None:
     while current is not None:
         if isinstance(current, MultiEngine):
             return current.engine_key_for(model)
-        if isinstance(current, InstrumentedEngine):
+        if isinstance(current, (InstrumentedEngine, ModelFallbackEngine)):
             current = current._inner
             continue
         if isinstance(current, GuardrailsEngine):

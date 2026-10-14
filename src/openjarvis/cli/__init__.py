@@ -129,6 +129,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.self_update_cmd import self_update
     from openjarvis.cli.serve import serve
     from openjarvis.cli.skill_cmd import skill
+    from openjarvis.cli.telegram_cmd import telegram
     from openjarvis.cli.telemetry_cmd import telemetry
     from openjarvis.cli.tool_cmd import tool
     from openjarvis.cli.vault_cmd import vault
@@ -143,6 +144,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(mine, "mine")
     cli.add_command(pearl, "pearl")
     cli.add_command(telemetry, "telemetry")
+    cli.add_command(telegram, "telegram")
     cli.add_command(bench, "bench")
     cli.add_command(channel, "channel")
     cli.add_command(channels, "channels")

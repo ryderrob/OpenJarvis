@@ -301,6 +301,19 @@ _MEMORY_TOOLS = frozenset(
 _CHANNEL_TOOLS = frozenset({"channel_send", "channel_list", "channel_status"})
 
 
+def _terminal_confirm(prompt: str) -> bool:
+    """Ask the user before a sensitive tool runs; deny when nobody can answer.
+
+    Tools marked ``requires_confirmation`` (shell commands, deletions, profile
+    changes, ...) used to be auto-approved here, which made the flag a no-op
+    for ``jarvis ask``.
+    """
+    if not sys.stdin.isatty():
+        logger.warning("Denied (no terminal to confirm): %s", prompt)
+        return False
+    return click.confirm(f"\n{prompt}", default=False, err=True)
+
+
 def _build_tools(
     tool_names: list[str],
     config,
@@ -439,7 +452,7 @@ def _run_agent(
                 capability_policy=capability_policy,
                 agent_id=getattr(agent_cls, "agent_id", agent_name),
                 interactive=True,
-                confirm_callback=lambda prompt: True,
+                confirm_callback=_terminal_confirm,
             )
             skill_manager = SkillManager(
                 bus,
@@ -477,7 +490,7 @@ def _run_agent(
         agent_kwargs["tools"] = tools
         agent_kwargs["max_turns"] = config.agent.max_turns
         agent_kwargs["interactive"] = True
-        agent_kwargs["confirm_callback"] = lambda prompt: True
+        agent_kwargs["confirm_callback"] = _terminal_confirm
         agent_kwargs["agent_id"] = agent_name
         if capability_policy is not None:
             agent_kwargs["capability_policy"] = capability_policy

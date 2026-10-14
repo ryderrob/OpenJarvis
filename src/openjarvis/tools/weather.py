@@ -17,6 +17,8 @@ from openjarvis.tools._stubs import BaseTool, ToolSpec
 _TOOL_NAME = "get_weather"
 _API_KEY_ENV = "OPENWEATHERMAP_API_KEY"
 _VALID_UNITS = frozenset({"metric", "imperial"})
+# ``open-meteo`` is keyless; opt in with [tools.weather] provider.
+_PROVIDERS = frozenset({"openweathermap", "open-meteo"})
 _LANGUAGE_PATTERN = re.compile(r"^[a-z]{2}(?:_[a-z]{2})?$")
 _MAX_LOCATION_LENGTH = 200
 _MIN_FORECAST_HOURS = 3
@@ -193,10 +195,11 @@ class WeatherTool(BaseTool):
     def execute(self, **params: Any) -> ToolResult:
         if self._config_error:
             return self._failure("Weather configuration could not be loaded.")
-        if self._provider.lower() != "openweathermap":
+        provider = self._provider.lower()
+        if provider not in _PROVIDERS:
             return self._failure(
                 f"Unsupported weather provider '{self._provider}'. "
-                "Only 'openweathermap' is supported."
+                "Use 'openweathermap' or 'open-meteo'."
             )
 
         location_value = params.get("location", self._default_location)
@@ -241,11 +244,16 @@ class WeatherTool(BaseTool):
         if not _MIN_FORECAST_HOURS <= forecast_hours <= _MAX_FORECAST_HOURS:
             return self._failure("forecast_hours must be between 3 and 120.")
 
+        if provider == "open-meteo":
+            return self._open_meteo(
+                location, units, language, include_forecast, forecast_hours
+            )
         api_key = self._resolve_api_key()
         if not api_key:
             return self._failure(
                 "No OpenWeatherMap API key configured. Connect the Weather "
-                f"connector or set {_API_KEY_ENV}."
+                f"connector, set {_API_KEY_ENV}, or set [tools.weather] "
+                "provider = 'open-meteo' for keyless lookups."
             )
 
         forecast_count = math.ceil(forecast_hours / 3)
@@ -305,6 +313,40 @@ class WeatherTool(BaseTool):
                 "units": units,
                 "language": language,
                 "forecast_entries": len(forecast_entries),
+            },
+        )
+
+    def _open_meteo(
+        self,
+        location: str,
+        units: str,
+        language: str,
+        include_forecast: bool,
+        forecast_hours: int,
+    ) -> ToolResult:
+        from openjarvis.connectors import open_meteo
+
+        try:
+            result = open_meteo.fetch_weather(
+                location,
+                units=units,
+                language=language,
+                include_forecast=include_forecast,
+                forecast_hours=forecast_hours,
+            )
+        except open_meteo.OpenMeteoError as exc:
+            return self._failure(f"Weather lookup failed: {exc}")
+        except Exception:
+            return self._failure("Weather lookup failed unexpectedly.")
+        return ToolResult(
+            tool_name=_TOOL_NAME,
+            content=json.dumps(result, ensure_ascii=False, separators=(",", ":")),
+            success=True,
+            metadata={
+                "provider": "open-meteo",
+                "location": location,
+                "units": units,
+                "forecast_entries": len(result.get("forecast", [])),
             },
         )
 

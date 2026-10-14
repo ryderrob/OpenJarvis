@@ -179,6 +179,17 @@ class BaseTool(ABC):
 # ---------------------------------------------------------------------------
 
 
+def _configured_confirm_tools() -> frozenset[str]:
+    """Tools the user marked as always needing approval (``[security]``)."""
+    try:
+        from openjarvis.core.config import load_config
+
+        raw = load_config().security.confirm_tools
+    except Exception:
+        return frozenset()
+    return frozenset(name.strip() for name in str(raw).split(",") if name.strip())
+
+
 class ToolExecutor:
     """Dispatch tool calls to registered tools with event bus integration.
 
@@ -212,6 +223,7 @@ class ToolExecutor:
         self._agent_id = agent_id
         self._boundary_guard = boundary_guard
         self._rate_limiter = rate_limiter
+        self._confirm_tools = _configured_confirm_tools()
         # Running taint accumulated across this executor's tool calls. Data
         # detected as PII/secret in one tool's output taints every later call,
         # so a sink-policy violation (e.g. secret -> http_request) is caught
@@ -250,6 +262,13 @@ class ToolExecutor:
 
     def execute(self, tool_call: ToolCall) -> ToolResult:
         """Parse arguments, dispatch to tool, measure latency, emit events."""
+        from openjarvis.core.cancellation import CANCELLED_MESSAGE, is_cancelled
+
+        if is_cancelled():
+            # The user stopped this run: refuse any further tool calls.
+            return ToolResult(
+                tool_name=tool_call.name, content=CANCELLED_MESSAGE, success=False
+            )
         tool = self._tools.get(tool_call.name)
         if tool is None:
             return ToolResult(
@@ -398,7 +417,7 @@ class ToolExecutor:
             params.pop("_taint", None)
 
         # Confirmation check for sensitive tools
-        if tool.spec.requires_confirmation:
+        if tool.spec.requires_confirmation or tool_call.name in self._confirm_tools:
             if not self._interactive or self._confirm_callback is None:
                 return ToolResult(
                     tool_name=tool_call.name,

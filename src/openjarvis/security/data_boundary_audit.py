@@ -226,6 +226,35 @@ WEATHER_TOOLS = {"get_weather"}
 MARKET_DATA_TOOLS = {"fx_macro_data"}
 CHANNEL_OUTBOUND_TOOLS = {"channel_send"}
 CONNECTOR_NETWORK_TOOLS = {"digest_collect", "execute_pending_actions"}
+# Telegram user-account (MTProto) tools: read and act as the logged-in user.
+TELEGRAM_USER_TOOLS = {
+    "telegram_api_call",
+    "telegram_block_user",
+    "telegram_call_control",
+    "telegram_call_media",
+    "telegram_media_library",
+    "telegram_call_speak",
+    "telegram_call_start",
+    "telegram_contacts",
+    "telegram_create_chat",
+    "telegram_delete_messages",
+    "telegram_download_media",
+    "telegram_edit_chat",
+    "telegram_edit_message",
+    "telegram_forward_messages",
+    "telegram_get_entity",
+    "telegram_invite_users",
+    "telegram_join_chat",
+    "telegram_leave_chat",
+    "telegram_list_chats",
+    "telegram_me",
+    "telegram_message_action",
+    "telegram_moderate",
+    "telegram_participants",
+    "telegram_read_messages",
+    "telegram_send_message",
+    "telegram_update_profile",
+}
 CLOUD_MEDIA_TOOLS = {"audio_transcribe", "image_generate", "text_to_speech"}
 CLOUD_TTS_BACKENDS = {"cartesia", "openai", "openai_tts"}
 # Local knowledge chunks scanned by an inference engine (Deep Research path).
@@ -239,6 +268,7 @@ EXTERNAL_TOOL_SURFACES = (
     | MARKET_DATA_TOOLS
     | CHANNEL_OUTBOUND_TOOLS
     | CONNECTOR_NETWORK_TOOLS
+    | TELEGRAM_USER_TOOLS
     | CLOUD_MEDIA_TOOLS
     | KNOWLEDGE_ENGINE_TOOLS
 )
@@ -1058,6 +1088,24 @@ def _audit_tool_surfaces(config: Any, builder: _FindingBuilder) -> None:
             recommendation=(
                 "Review channel targets and message content before enabling outbound "
                 "messaging tools."
+            ),
+        )
+
+    telegram_tools = tools & TELEGRAM_USER_TOOLS
+    if telegram_tools:
+        builder.add(
+            finding_id="telegram-user-tools-configured",
+            status="warn",
+            title="Telegram user-account tools are configured",
+            potential_data_path=(
+                "chat history, contacts, files, and live call audio -> Telegram "
+                "servers as the logged-in user; call audio -> configured STT/TTS"
+            ),
+            evidence=f"configured tool(s) = {_format_tools(telegram_tools)}",
+            recommendation=(
+                "These tools act as your personal Telegram account. Keep the "
+                "session file private and review agent instructions before "
+                "enabling them."
             ),
         )
 

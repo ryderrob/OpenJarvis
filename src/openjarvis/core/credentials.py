@@ -44,6 +44,7 @@ TOOL_CREDENTIALS: dict[str, list[str]] = {
     "image_generate": ["OPENAI_API_KEY"],
     "slack": ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"],
     "telegram": ["TELEGRAM_BOT_TOKEN"],
+    "telegram_user": ["TELEGRAM_API_ID", "TELEGRAM_API_HASH"],
     "discord": ["DISCORD_BOT_TOKEN"],
     "email": ["EMAIL_USERNAME", "EMAIL_PASSWORD"],
     "whatsapp": ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"],

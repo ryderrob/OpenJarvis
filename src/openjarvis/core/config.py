@@ -613,6 +613,9 @@ class IntelligenceConfig:
     model_long: str = ""
     model_code: str = ""
     fallback_model: str = ""
+    # Comma-separated models retried in order when a request to the chosen
+    # model fails (e.g. a gateway's upstream 5xx/429). Default engine only.
+    fallback_models: str = ""
     model_path: str = ""  # Local weights (HF repo, GGUF file, etc.)
     checkpoint_path: str = ""  # Checkpoint/adapter path
     quantization: str = "none"  # none, fp8, int8, int4, gguf_q4, gguf_q8
@@ -1118,6 +1121,23 @@ class WeatherToolConfig:
 
 
 @dataclass(slots=True)
+class TelegramUserToolConfig:
+    """Who the Telegram user-account assistant responds to.
+
+    Only incoming messages and calls from ``allowed_users`` are answered by
+    ``jarvis telegram listen``; everyone else is ignored (no reply, calls are
+    left ringing). Empty means nobody.
+    """
+
+    allowed_users: str = ""  # comma-separated @usernames or numeric user ids
+    # Comma-separated folders whose audio/video files can be streamed into
+    # calls (searched before YouTube).
+    media_dirs: str = ""
+    answer_messages: bool = True
+    answer_calls: bool = True
+
+
+@dataclass(slots=True)
 class ToolsConfig:
     """Tools primitive settings — wraps storage and MCP configuration."""
 
@@ -1125,6 +1145,9 @@ class ToolsConfig:
     mcp: MCPConfig = field(default_factory=MCPConfig)
     browser: BrowserConfig = field(default_factory=BrowserConfig)
     weather: WeatherToolConfig = field(default_factory=WeatherToolConfig)
+    telegram_user: TelegramUserToolConfig = field(
+        default_factory=TelegramUserToolConfig
+    )
     enabled: str = ""  # comma-separated default tools
 
 
@@ -1451,6 +1474,9 @@ class SecurityConfig:
     profile: str = ""
     # Directories file_read/file_write may touch; empty means unrestricted.
     allowed_dirs: List[str] = field(default_factory=list)
+    # Comma-separated tools that always need user approval, on top of tools
+    # whose spec already sets requires_confirmation (e.g. "file_write").
+    confirm_tools: str = ""
     vault_key_path: str = field(
         default_factory=lambda: str(get_config_dir() / ".vault_key")
     )

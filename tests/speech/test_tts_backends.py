@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -741,3 +741,65 @@ def test_openai_tts_synthesize():
 
     assert result.audio == b"fake-openai-audio"
     assert result.voice_id == "nova"
+
+
+def test_openai_tts_uses_compatible_server_overrides(monkeypatch):
+    from openjarvis.speech import openai_tts
+
+    monkeypatch.setenv("OPENAI_TTS_BASE_URL", "http://gateway:9999/v1/")
+    monkeypatch.setenv("OPENAI_TTS_API_KEY", "gateway-key")
+    monkeypatch.setenv("OPENAI_TTS_MODEL", "kokoro")
+    monkeypatch.setenv("OPENAI_API_KEY", "real-openai-key")
+    backend = openai_tts.OpenAITTSBackend()
+
+    captured = {}
+
+    def _post(url, headers, json, timeout):
+        captured.update(url=url, auth=headers["Authorization"], model=json["model"])
+        response = MagicMock()
+        response.content = b"audio"
+        return response
+
+    with patch("openjarvis.speech.openai_tts.httpx.post", side_effect=_post):
+        backend.synthesize("Hi", voice_id="af_heart")
+
+    assert captured == {
+        "url": "http://gateway:9999/v1/audio/speech",
+        "auth": "Bearer gateway-key",
+        "model": "kokoro",
+    }
+
+
+def test_openai_tts_defaults_to_openai(monkeypatch):
+    from openjarvis.speech import openai_tts
+
+    monkeypatch.delenv("OPENAI_TTS_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_TTS_MODEL", raising=False)
+    assert openai_tts._speech_url() == "https://api.openai.com/v1/audio/speech"
+    assert openai_tts.OpenAITTSBackend(api_key="k")._model == "tts-1"
+
+
+def test_openai_tts_model_list_falls_back(monkeypatch):
+    import httpx
+
+    from openjarvis.speech import openai_tts
+
+    monkeypatch.setenv("OPENAI_TTS_MODEL", "voice-model, auto")
+    tried = []
+
+    def _request(api_key, text, voice, model, speed, response_format):
+        tried.append(model)
+        if model == "voice-model":
+            raise httpx.HTTPStatusError(
+                "502", request=MagicMock(), response=MagicMock(status_code=502)
+            )
+        return b"audio"
+
+    with patch(
+        "openjarvis.speech.openai_tts._openai_tts_request", side_effect=_request
+    ):
+        result = openai_tts.OpenAITTSBackend(api_key="k").synthesize(
+            "Hi", voice_id="echo"
+        )
+
+    assert tried == ["voice-model", "auto"] and result.audio == b"audio"

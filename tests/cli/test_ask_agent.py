@@ -277,9 +277,16 @@ class TestAskAgentOption:
         agent_setup,
         tools_enabled,
         agent_tools,
+        monkeypatch,
     ):
         agent_setup.config.tools.enabled = tools_enabled
         agent_setup.config.agent.tools = agent_tools
+        # The user approves the confirmation-gated tool at the prompt.
+        monkeypatch.setattr(
+            importlib.import_module("openjarvis.cli.ask"),
+            "_terminal_confirm",
+            lambda prompt: True,
+        )
 
         result = runner.invoke(
             cli,
@@ -289,6 +296,20 @@ class TestAskAgentOption:
         assert result.exit_code == 0
         assert "executed!" in result.output
         agent_setup.engine.generate.assert_not_called()
+
+    def test_confirmation_gated_tool_is_denied_without_terminal(
+        self, runner, agent_setup
+    ):
+        agent_setup.config.agent.tools = "dangerous"
+
+        result = runner.invoke(
+            cli,
+            ["ask", "--agent", "confirming_agent", "Hello"],
+        )
+
+        assert result.exit_code == 0
+        assert "executed!" not in result.output
+        assert "denied" in result.output
 
 
 class TestAskSkillsAndTraces:
